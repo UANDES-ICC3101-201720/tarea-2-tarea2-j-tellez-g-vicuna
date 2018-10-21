@@ -32,6 +32,7 @@ int main( int argc, char *argv[] )
 	int npages = atoi(argv[1]);
 	int nframes = atoi(argv[2]);
 	const char *program = argv[4];
+	const char *algorithm = argv[3];
 
 	struct disk *disk = disk_open("myvirtualdisk",npages);
 	if(!disk) {

@@ -23,13 +23,10 @@ int check_first_free_space(struct page_table *pt){
 
 //Handlers:
 void fifo_page_fault_handler( struct page_table *pt, int page )
-{
-	int *a=1;
-	int *b=0;	
+{	
 	printf("page fault on page #%d\n",page);
 	printf("using fifo handler for missing page...\n");
-	/*page_table_set_entry(pt, page, page, 1); */
-	exit(1);
+	page_table_set_entry(pt, page, page, PROT_READ | PROT_WRITE);
 }
 void random_page_fault_handler( struct page_table *pt, int page )
 {
@@ -69,7 +66,7 @@ int main( int argc, char *argv[] )
 		pt = page_table_create( npages, nframes, fifo_page_fault_handler );
 	}
 	else if (!strcmp(handler,"random")){
-		pt = page_table_create( npages, nframes, lru_page_fault_handler );
+		pt = page_table_create( npages, nframes, random_page_fault_handler );
 	}
 	else if (!strcmp(handler,"custom")){
 		pt = page_table_create( npages, nframes, custom_page_fault_handler );
@@ -104,6 +101,10 @@ int main( int argc, char *argv[] )
 	}
 
 	page_table_print(pt);
+
+	/*int *frame;
+	int *bits;
+	page_table_get_entry(pt,1,frame,bits);*/
 
 	page_table_delete(pt);
 	disk_close(disk);

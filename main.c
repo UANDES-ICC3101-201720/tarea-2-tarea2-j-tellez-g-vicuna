@@ -15,13 +15,17 @@ how to use the page table and disk interfaces.
 #include <string.h>
 #include <errno.h>
 
+struct disk *disk;
+
 //Handlers:
 void fifo_page_fault_handler( struct page_table *pt, int page )
 {	
 	printf("\npage fault on page #%d\n",page);
 	printf("using fifo handler for missing page...\n");
+	
+	//En caso de que la pagina sea menor a la cantidad de frames disponibles simplemente apunta a su numero de frame:
 	if (page<=page_table_get_nframes(pt)-1){
-		page_table_set_entry(pt, page, page, PROT_READ | PROT_WRITE);
+		page_table_set_entry(pt, page, page, PROT_READ | PROT_WRITE | PROT_EXEC);
 		printf("page saved at frame #%d\n",page);
 	}
 	else{
@@ -33,7 +37,7 @@ void random_page_fault_handler( struct page_table *pt, int page )
 	printf("\npage fault on page #%d\n",page);
 	printf("using lru handler for missing page...\n");
 	if (page<=page_table_get_nframes(pt)-1){
-		page_table_set_entry(pt, page, page, PROT_READ | PROT_WRITE);
+		page_table_set_entry(pt, page, page, PROT_READ | PROT_WRITE | PROT_EXEC);
 		printf("page saved at frame #%d\n",page);
 	}
 	else{
@@ -45,7 +49,7 @@ void custom_page_fault_handler( struct page_table *pt, int page )
 	printf("\npage fault on page #%d\n",page);
 	printf("using custom handler for missing page...\n");
 	if (page<=page_table_get_nframes(pt)-1){
-		page_table_set_entry(pt, page, page, PROT_READ | PROT_WRITE);
+		page_table_set_entry(pt, page, page, PROT_READ | PROT_WRITE | PROT_EXEC);
 		printf("page saved at frame #%d\n",page);
 	}
 	else{
@@ -66,7 +70,7 @@ int main( int argc, char *argv[] )
 	const char *program = argv[4];
 	const char *handler = argv[3];
 
-	struct disk *disk = disk_open("myvirtualdisk",npages);
+	disk = disk_open("myvirtualdisk",npages);
 	if(!disk) {
 		fprintf(stderr,"couldn't create virtual disk: %s\n",strerror(errno));
 		return 1;

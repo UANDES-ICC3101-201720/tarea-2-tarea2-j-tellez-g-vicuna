@@ -15,30 +15,42 @@ how to use the page table and disk interfaces.
 #include <string.h>
 #include <errno.h>
 
-//Funciones utiles:
-	//Chequeo de espacio libre en memoria fisica:
-int check_first_free_space(struct page_table *pt){
-
-}
-
 //Handlers:
 void fifo_page_fault_handler( struct page_table *pt, int page )
 {	
-	printf("page fault on page #%d\n",page);
+	printf("\npage fault on page #%d\n",page);
 	printf("using fifo handler for missing page...\n");
-	page_table_set_entry(pt, page, page, PROT_READ | PROT_WRITE);
+	if (page<=page_table_get_nframes(pt)-1){
+		page_table_set_entry(pt, page, page, PROT_READ | PROT_WRITE);
+		printf("page saved at frame #%d\n",page);
+	}
+	else{
+		exit(1);
+	}
 }
 void random_page_fault_handler( struct page_table *pt, int page )
 {
-	printf("page fault on page #%d\n",page);
+	printf("\npage fault on page #%d\n",page);
 	printf("using lru handler for missing page...\n");
-	exit(1);
+	if (page<=page_table_get_nframes(pt)-1){
+		page_table_set_entry(pt, page, page, PROT_READ | PROT_WRITE);
+		printf("page saved at frame #%d\n",page);
+	}
+	else{
+		exit(1);
+	}
 }
 void custom_page_fault_handler( struct page_table *pt, int page )
 {
-	printf("page fault on page #%d\n",page);
+	printf("\npage fault on page #%d\n",page);
 	printf("using custom handler for missing page...\n");
-	exit(1);
+	if (page<=page_table_get_nframes(pt)-1){
+		page_table_set_entry(pt, page, page, PROT_READ | PROT_WRITE);
+		printf("page saved at frame #%d\n",page);
+	}
+	else{
+		exit(1);
+	}
 }
 
 int main( int argc, char *argv[] )
@@ -101,10 +113,6 @@ int main( int argc, char *argv[] )
 	}
 
 	page_table_print(pt);
-
-	/*int *frame;
-	int *bits;
-	page_table_get_entry(pt,1,frame,bits);*/
 
 	page_table_delete(pt);
 	disk_close(disk);

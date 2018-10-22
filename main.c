@@ -68,11 +68,15 @@ int main( int argc, char *argv[] )
 	if (!strcmp(handler,"fifo")){
 		pt = page_table_create( npages, nframes, fifo_page_fault_handler );
 	}
-	if (!strcmp(handler,"random")){
+	else if (!strcmp(handler,"random")){
 		pt = page_table_create( npages, nframes, lru_page_fault_handler );
 	}
-	if (!strcmp(handler,"custom")){
+	else if (!strcmp(handler,"custom")){
 		pt = page_table_create( npages, nframes, custom_page_fault_handler );
+	}
+	else{
+		printf("unknown handler: %s\n",handler);
+		exit(1);
 	}
 	/* Hasta aca */
 

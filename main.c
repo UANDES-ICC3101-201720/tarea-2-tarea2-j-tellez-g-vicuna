@@ -171,9 +171,9 @@ int main( int argc, char *argv[] )
 	}
 
 	int npages = atoi(argv[1]);
-	nframes = atoi(argv[2]);
-	const char *program = argv[4];
-	const char *handler = argv[3];
+	nframes = atoi(argv[4]);
+	const char *program = argv[3];
+	const char *handler = argv[2];
 	frame_table = malloc(sizeof(int) * nframes);
 
 	disk = disk_open("myvirtualdisk",npages);
@@ -230,7 +230,7 @@ int main( int argc, char *argv[] )
 
 	//page_table_print(pt);//
 
-	printf("page faults: %i\nwrites on disk: %i\nreads on disk: %i\n", counterf,counterw,counterr);
+	printf("page faults: %i\nwrites on disk: %i\nreads on disk: %i\nmarcos: %i\n\n", counterf,counterw,counterr,nframes);
 
 	page_table_delete(pt);
 	disk_close(disk);

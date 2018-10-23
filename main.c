@@ -25,7 +25,12 @@ int * frame_table;
 int frame = 0; //variable que indica el siguiente frame libre.
 int iframe = 0; //variable que indica el frame victima para custom handler.
 
-//Creamos lista ligada para cola en fifo:
+//Contadores de eventos para imprimir en consola:
+int counterw=0;
+int counterr=0;
+int counterf=0;
+
+//Creamos cola para fifo:
 int *queue;
 int head = -1; //cabeza de la cola (no necesariamente inicio de lista)
 int iqueue = -1; //indice que recorre la cola
@@ -53,13 +58,16 @@ int add_queue(int valor){
 
 //Handlers:
 //FIFO:
-void fifo_page_fault_handler(struct page_table *pt, int page)
-{
+void fifo_page_fault_handler(struct page_table *pt, int page){
+
+	counterf++;
+
 	//En caso de que si pudo agregarse al queue:
 	if (add_queue(frame)){
 
 		page_table_set_entry(pt, page, frame, PROT_READ|PROT_WRITE|PROT_EXEC);
 		disk_read(disk, page, &physmem[frame*PAGE_SIZE]);
+		counterr++;
 
 		frame_table[frame] = page;
 
@@ -72,6 +80,8 @@ void fifo_page_fault_handler(struct page_table *pt, int page)
 
 		disk_write(disk, frame_table[vframe], &physmem[vframe*PAGE_SIZE]);
 		disk_read(disk, page, &physmem[vframe*PAGE_SIZE]);
+		counterw++;
+		counterr++;
 
 		page_table_set_entry(pt, page, vframe, PROT_READ|PROT_WRITE|PROT_EXEC);
 		page_table_set_entry(pt, frame_table[vframe], vframe, 0);
@@ -84,11 +94,14 @@ void fifo_page_fault_handler(struct page_table *pt, int page)
 //RANDOM:
 void random_page_fault_handler(struct page_table *pt, int page){
 
+	counterf++;
+
 	//Si todavia no se completan los frames vamos agregando en orden:
 	if (frame < nframes){
 
 		page_table_set_entry(pt, page, frame, PROT_READ|PROT_WRITE|PROT_EXEC);
 		disk_read(disk, page, &physmem[frame*PAGE_SIZE]);
+		counterr++;
 
 		frame_table[frame] = page;
 
@@ -101,6 +114,8 @@ void random_page_fault_handler(struct page_table *pt, int page){
 
 		disk_write(disk, frame_table[vframe], &physmem[vframe*PAGE_SIZE]);
 		disk_read(disk, page, &physmem[vframe*PAGE_SIZE]);
+		counterw++;
+		counterr++;
 
 		page_table_set_entry(pt, page, vframe, PROT_READ|PROT_WRITE|PROT_EXEC);
 		page_table_set_entry(pt, frame_table[vframe], vframe, 0);
@@ -112,11 +127,14 @@ void random_page_fault_handler(struct page_table *pt, int page){
 
 void custom_page_fault_handler(struct page_table *pt, int page){
 
+	counterf++;
+
 	//Si todavia no se completan los frames vamos agregando en orden:
 	if (frame < nframes){
 
 		page_table_set_entry(pt, page, frame, PROT_READ|PROT_WRITE|PROT_EXEC);
 		disk_read(disk, page, &physmem[frame*PAGE_SIZE]);
+		counterr++;
 
 		frame_table[frame] = page;
 
@@ -132,6 +150,8 @@ void custom_page_fault_handler(struct page_table *pt, int page){
 
 		disk_write(disk, frame_table[vframe], &physmem[vframe*PAGE_SIZE]);
 		disk_read(disk, page, &physmem[vframe*PAGE_SIZE]);
+		counterw++;
+		counterr++;
 
 		page_table_set_entry(pt, page, vframe, PROT_READ|PROT_WRITE|PROT_EXEC);
 		page_table_set_entry(pt, frame_table[vframe], vframe, 0);
@@ -208,7 +228,9 @@ int main( int argc, char *argv[] )
 
 	}
 
-	page_table_print(pt);
+	//page_table_print(pt);//
+
+	printf("page faults: %i\nwrites on disk: %i\nreads on disk: %i\n", counterf,counterw,counterr);
 
 	page_table_delete(pt);
 	disk_close(disk);

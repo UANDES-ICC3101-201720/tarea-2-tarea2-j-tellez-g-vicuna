@@ -20,56 +20,72 @@ struct disk *disk;
 char *physmem;
 char *virtmem;
 int nframes;
+int * frame_table;
+int frame = 0;
 
-//Creamos las linked list con raiz iniciada en null:
-struct nodo{
-	int frame;
-	int page;
-	struct nodo *next;
-};
-struct nodo *raiz = NULL;
+//Creamos lista ligada para cola en fifo:
+int *queue;
+int head = -1; //cabeza de la cola (no necesariamente inicio de lista)
+int iqueue = -1; //indice que recorre la cola
 
-//Funciones de linked list:
-//Eliminar raiz:
-void eliminar_raiz(struct nodo **raiz){
-	struct nodo * next_node = NULL;
-	next_node = (*raiz)->next;
-	free(*raiz);
-	*raiz = next_node;
-}
-//Eliminar nodo especifico:
-void eliminar_nodo(struct nodo ** raiz, int index){
-	struct nodo * current = *raiz;
-	struct nodo * temp = NULL;
-	if (index ==0)eliminar_raiz(raiz);
-	else{
-		for(int i = 0; i < index-1; i++){
-			current = current->next;
-		}
-		temp = current->next;
-		current->next = temp->next;
-		free(temp);
+//Funciones de queue:
+//Eliminar valor de queue (retorna el valor eliminado para luego modificar la pagina):
+int pop_queue(){
+	if (head != -1){
+		head++;
+		if (head > iqueue) head = iqueue = -1;
+		return queue[head];
 	}
+	return 0;
 }
-//Eliminar ultimo nodo:
-void eliminar_ultimo_nodo(struct nodo * raiz, int page, int frame){
-	struct nodo * current = raiz;
-	while(current->next != NULL){
-		current = current->next;
+//Agregar valor a queue:
+int add_queue(int valor){
+	if (iqueue - head != nframes - 1){
+		if (head == -1) head = 0;
+		iqueue++;
+		queue[iqueue] = valor;
+		return 1;
 	}
-	current->next = malloc(sizeof(struct nodo));
-	current->next->page = page;
-	current->next->frame = frame;
-	current->next->next = NULL;
+	return 0;
 }
 
 //Handlers:
+//FIFO:
+void fifo_page_fault_handler(struct page_table *pt, int page)
+{
+	//En caso de que si pudo agregarse al queue:
+	if (add_queue(frame)){
+
+		page_table_set_entry(pt, page, frame, PROT_READ|PROT_WRITE|PROT_EXEC);
+		disk_read(disk, page, &physmem[frame*PAGE_SIZE]);
+
+		frame_table[frame] = page;
+
+		frame++;
+	}
+	//Si el queue estaba lleno, hace swapping:
+	else{
+
+		int vframe = pop_queue(); //Frame victima es el ultimo en ser usado
+
+		disk_write(disk, frame_table[vframe], &physmem[vframe*PAGE_SIZE]);
+		disk_read(disk, page, &physmem[vframe*PAGE_SIZE]);
+
+		page_table_set_entry(pt, page, vframe, PROT_READ|PROT_WRITE|PROT_EXEC);
+		page_table_set_entry(pt, frame_table[vframe], vframe, 0);
+
+		frame_table[vframe] = page;
+
+		add_queue(vframe);
+	}
+}
+//RANDOM:
 
 
-
-void custom_page_fault_handler( struct page_table *pt, int page ){
+void custom_page_fault_handler(struct page_table *pt, int page){
 	exit(1);
 }
+
 
 int main( int argc, char *argv[] )
 {
@@ -83,10 +99,7 @@ int main( int argc, char *argv[] )
 	nframes = atoi(argv[2]);
 	const char *program = argv[4];
 	const char *handler = argv[3];
-
-	for (int i=0; i<nframes; i++){
-		iframe[i]=-1;
-	}
+	frame_table = malloc(sizeof(int) * nframes);
 
 	disk = disk_open("myvirtualdisk",npages);
 	if(!disk) {
@@ -109,7 +122,13 @@ int main( int argc, char *argv[] )
 		printf("unknown handler: %s\n",handler);
 		exit(1);
 	}
-	/* Hasta aca */
+
+	//Inicio de la memoria virtual de la tabla de paginas pt
+	char *virtmem = page_table_get_virtmem(pt); 
+	//Inicio de la memoria fisica  de la tabla de paginas pt
+	physmem = page_table_get_physmem(pt);
+
+	queue = malloc(sizeof(int)*10000);
 
 	if(!pt) {
 		fprintf(stderr,"couldn't create page table: %s\n",strerror(errno));
@@ -135,10 +154,6 @@ int main( int argc, char *argv[] )
 	}
 
 	page_table_print(pt);
-	
-	char data;
-	disk_read(disk,99,&data);
-	printf("%c",data);
 
 	page_table_delete(pt);
 	disk_close(disk);

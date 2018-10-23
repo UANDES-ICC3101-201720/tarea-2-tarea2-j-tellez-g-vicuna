@@ -14,47 +14,55 @@ how to use the page table and disk interfaces.
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-
+// Variables globales para usar en handlers:
 struct disk *disk;
+char *physmem;
+char *virtmem;
 
+//Funciones utiles:
 //Handlers:
+//Funcion base que todo handler ejecuta:
+int main_page_fault_handler( struct page_table *pt, int page){
+	//En caso de que la pagina sea menor a la cantidad de frames simplemente apunta a su numero de frame:
+	if (page<=page_table_get_nframes(pt)-1){
+		page_table_set_entry(pt, page, page, PROT_READ | PROT_WRITE | PROT_EXEC);
+		disk_read(disk,page,&physmem[page*PAGE_SIZE]);
+		printf("page saved at frame #%d\n",page);
+		return 1;
+	}
+	//En caso contrario se hace swapping con el algoritmo seleccionado:
+	return 0;
+}
+
 void fifo_page_fault_handler( struct page_table *pt, int page )
 {	
 	printf("\npage fault on page #%d\n",page);
 	printf("using fifo handler for missing page...\n");
-	
-	//En caso de que la pagina sea menor a la cantidad de frames disponibles simplemente apunta a su numero de frame:
-	if (page<=page_table_get_nframes(pt)-1){
-		page_table_set_entry(pt, page, page, PROT_READ | PROT_WRITE | PROT_EXEC);
-		printf("page saved at frame #%d\n",page);
-	}
-	else{
+
+	if (!main_page_fault_handler(pt, page)){
 		exit(1);
 	}
+	disk_write(disk,page,&virtmem[page*PAGE_SIZE]);
 }
 void random_page_fault_handler( struct page_table *pt, int page )
 {
 	printf("\npage fault on page #%d\n",page);
-	printf("using lru handler for missing page...\n");
-	if (page<=page_table_get_nframes(pt)-1){
-		page_table_set_entry(pt, page, page, PROT_READ | PROT_WRITE | PROT_EXEC);
-		printf("page saved at frame #%d\n",page);
-	}
-	else{
+	printf("using random handler for missing page...\n");
+
+	if (!main_page_fault_handler(pt,page)){
 		exit(1);
 	}
+	disk_write(disk,page,&virtmem[page*PAGE_SIZE]);
 }
 void custom_page_fault_handler( struct page_table *pt, int page )
 {
 	printf("\npage fault on page #%d\n",page);
 	printf("using custom handler for missing page...\n");
-	if (page<=page_table_get_nframes(pt)-1){
-		page_table_set_entry(pt, page, page, PROT_READ | PROT_WRITE | PROT_EXEC);
-		printf("page saved at frame #%d\n",page);
-	}
-	else{
+
+	if (!main_page_fault_handler(pt,page)){
 		exit(1);
 	}
+	disk_write(disk,page,&virtmem[page*PAGE_SIZE]);
 }
 
 int main( int argc, char *argv[] )
@@ -98,9 +106,9 @@ int main( int argc, char *argv[] )
 		return 1;
 	}
 
-	char *virtmem = page_table_get_virtmem(pt);
+	virtmem = page_table_get_virtmem(pt);
 
-	char *physmem = page_table_get_physmem(pt);
+	physmem = page_table_get_physmem(pt);
 
 	if(!strcmp(program,"sort")) {
 		sort_program(virtmem,npages*PAGE_SIZE);
@@ -117,7 +125,10 @@ int main( int argc, char *argv[] )
 	}
 
 	page_table_print(pt);
-
+	
+	char data;
+	disk_read(disk,1,&data);
+	printf("%c",data);
 	page_table_delete(pt);
 	disk_close(disk);
 

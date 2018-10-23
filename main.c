@@ -80,7 +80,33 @@ void fifo_page_fault_handler(struct page_table *pt, int page)
 	}
 }
 //RANDOM:
+void random_page_fault_handler(struct page_table *pt, int page){
 
+	//Si todavia no se completan los frames:
+	if (frame < nframes){
+
+		page_table_set_entry(pt, page, frame, PROT_READ|PROT_WRITE|PROT_EXEC);
+		disk_read(disk, page, &physmem[frame*PAGE_SIZE]);
+
+		frame_table[frame] = page;
+
+		frame++;
+	}
+	//Si ya se lleno la tabla de frames, hace swapping:
+	else{
+
+		int vframe = lrand48()%nframes; //Frame victima es uno escogido al azar de todos los frames.
+
+		disk_write(disk, frame_table[vframe], &physmem[vframe*PAGE_SIZE]);
+		disk_read(disk, page, &physmem[vframe*PAGE_SIZE]);
+
+		page_table_set_entry(pt, page, vframe, PROT_READ|PROT_WRITE|PROT_EXEC);
+		page_table_set_entry(pt, frame_table[vframe], vframe, 0);
+		
+		frame_table[vframe] = page;
+	}
+	
+}
 
 void custom_page_fault_handler(struct page_table *pt, int page){
 	exit(1);

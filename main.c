@@ -21,7 +21,9 @@ char *physmem;
 char *virtmem;
 int nframes;
 int * frame_table;
-int frame = 0;
+
+int frame = 0; //variable que indica el siguiente frame libre.
+int iframe = 0; //variable que indica el frame victima para custom handler.
 
 //Creamos lista ligada para cola en fifo:
 int *queue;
@@ -82,7 +84,7 @@ void fifo_page_fault_handler(struct page_table *pt, int page)
 //RANDOM:
 void random_page_fault_handler(struct page_table *pt, int page){
 
-	//Si todavia no se completan los frames:
+	//Si todavia no se completan los frames vamos agregando en orden:
 	if (frame < nframes){
 
 		page_table_set_entry(pt, page, frame, PROT_READ|PROT_WRITE|PROT_EXEC);
@@ -109,7 +111,34 @@ void random_page_fault_handler(struct page_table *pt, int page){
 }
 
 void custom_page_fault_handler(struct page_table *pt, int page){
-	exit(1);
+
+	//Si todavia no se completan los frames vamos agregando en orden:
+	if (frame < nframes){
+
+		page_table_set_entry(pt, page, frame, PROT_READ|PROT_WRITE|PROT_EXEC);
+		disk_read(disk, page, &physmem[frame*PAGE_SIZE]);
+
+		frame_table[frame] = page;
+
+		frame++;
+	}
+	//Si ya se lleno la tabla de frames, hace swapping:
+	else{
+
+		int vframe = iframe; //Frame victima es el indicado por iframe.
+		//iframe aumenta y vuelve al inicio si llega al final:
+		iframe++;
+		if (iframe==nframes)iframe=0;
+
+		disk_write(disk, frame_table[vframe], &physmem[vframe*PAGE_SIZE]);
+		disk_read(disk, page, &physmem[vframe*PAGE_SIZE]);
+
+		page_table_set_entry(pt, page, vframe, PROT_READ|PROT_WRITE|PROT_EXEC);
+		page_table_set_entry(pt, frame_table[vframe], vframe, 0);
+		
+		frame_table[vframe] = page;
+
+	}
 }
 
 

@@ -14,55 +14,61 @@ how to use the page table and disk interfaces.
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+
 // Variables globales para usar en handlers:
 struct disk *disk;
 char *physmem;
 char *virtmem;
+int nframes;
 
-//Funciones utiles:
+//Creamos las linked list con raiz iniciada en null:
+struct nodo{
+	int frame;
+	int page;
+	struct nodo *next;
+};
+struct nodo *raiz = NULL;
+
+//Funciones de linked list:
+//Eliminar raiz:
+void eliminar_raiz(struct nodo **raiz){
+	struct nodo * next_node = NULL;
+	next_node = (*raiz)->next;
+	free(*raiz);
+	*raiz = next_node;
+}
+//Eliminar nodo especifico:
+void eliminar_nodo(struct nodo ** raiz, int index){
+	struct nodo * current = *raiz;
+	struct nodo * temp = NULL;
+	if (index ==0)eliminar_raiz(raiz);
+	else{
+		for(int i = 0; i < index-1; i++){
+			current = current->next;
+		}
+		temp = current->next;
+		current->next = temp->next;
+		free(temp);
+	}
+}
+//Eliminar ultimo nodo:
+void eliminar_ultimo_nodo(struct nodo * raiz, int page, int frame){
+	struct nodo * current = raiz;
+	while(current->next != NULL){
+		current = current->next;
+	}
+	current->next = malloc(sizeof(struct nodo));
+	current->next->page = page;
+	current->next->frame = frame;
+	current->next->next = NULL;
+}
+
 //Handlers:
-//Funcion base que todo handler ejecuta:
-int main_page_fault_handler( struct page_table *pt, int page){
-	//En caso de que la pagina sea menor a la cantidad de frames simplemente apunta a su numero de frame:
-	if (page<=page_table_get_nframes(pt)-1){
-		page_table_set_entry(pt, page, page, PROT_READ | PROT_WRITE | PROT_EXEC);
-		disk_read(disk,page,&physmem[page*PAGE_SIZE]);
-		printf("page saved at frame #%d\n",page);
-		return 1;
-	}
-	//En caso contrario se hace swapping con el algoritmo seleccionado:
-	return 0;
-}
 
-void fifo_page_fault_handler( struct page_table *pt, int page )
-{	
-	printf("\npage fault on page #%d\n",page);
-	printf("using fifo handler for missing page...\n");
 
-	if (!main_page_fault_handler(pt, page)){
-		exit(1);
-	}
-	disk_write(disk,page,&virtmem[page*PAGE_SIZE]);
-}
-void random_page_fault_handler( struct page_table *pt, int page )
-{
-	printf("\npage fault on page #%d\n",page);
-	printf("using random handler for missing page...\n");
 
-	if (!main_page_fault_handler(pt,page)){
-		exit(1);
-	}
-	disk_write(disk,page,&virtmem[page*PAGE_SIZE]);
-}
-void custom_page_fault_handler( struct page_table *pt, int page )
-{
-	printf("\npage fault on page #%d\n",page);
-	printf("using custom handler for missing page...\n");
-
-	if (!main_page_fault_handler(pt,page)){
-		exit(1);
-	}
-	disk_write(disk,page,&virtmem[page*PAGE_SIZE]);
+void custom_page_fault_handler( struct page_table *pt, int page ){
+	exit(1);
 }
 
 int main( int argc, char *argv[] )
@@ -74,9 +80,13 @@ int main( int argc, char *argv[] )
 	}
 
 	int npages = atoi(argv[1]);
-	int nframes = atoi(argv[2]);
+	nframes = atoi(argv[2]);
 	const char *program = argv[4];
 	const char *handler = argv[3];
+
+	for (int i=0; i<nframes; i++){
+		iframe[i]=-1;
+	}
 
 	disk = disk_open("myvirtualdisk",npages);
 	if(!disk) {
@@ -127,8 +137,9 @@ int main( int argc, char *argv[] )
 	page_table_print(pt);
 	
 	char data;
-	disk_read(disk,1,&data);
+	disk_read(disk,99,&data);
 	printf("%c",data);
+
 	page_table_delete(pt);
 	disk_close(disk);
 
